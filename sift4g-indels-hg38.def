@@ -1,0 +1,74 @@
+Bootstrap: docker
+# Requires perl<5.26.0 due to breaking changes in regex syntax requirements
+From: perl:5.24.4
+
+%help
+    The offline SIFT INDEL classifier for coding indels on hg38. This image
+    should be the equivalent of sift.bii.a-star.edu.sg/www/SIFT_indels2.html.
+    This image is self-contained as it includes the database file, though
+    consequently it is quite large (2.3G).
+
+    The SIFT INDEL source code and databases are downloaded from URLs listed on
+    https://sift.bii.a-star.edu.sg/, because the licensing is unclear. The
+    building of this image therefore requires an internet connection.
+
+    To use this image, run
+
+    perl /SIFTINDEL/bin/SIFT_exome_indels.pl \
+        -i input_file -c hs38 -d /SIFT_INDEL_HG38/ -m 1 -o output_directory
+
+    Where input_file is a file in SIFT INDEL's specified space-based coordinate
+    system (https://sift.bii.a-star.edu.sg/www/indels_help.html?mybuild=hs38)
+    and output_directory is the location to output the results files (ibid.)
+
+    For example, run the README example as
+
+    singularity exec sift4g-indels-hg38.sif \
+        perl /SIFTINDEL/bin/SIFT_exome_indels.pl \
+            -i /SIFTINDEL/test/input38.txt \
+            -c hs38 -d /SIFT_INDEL_HG38/ -m 1 -o test-output
+
+
+# The source code and database files are downloaded unto the host system so that
+# they do not have to be re-downloaded when the build step is re-run. It also
+# allows for faster failures if one day these URLs are not maintained.
+%setup
+    wget --continue https://s3.amazonaws.com/sift-public/indel/SIFTINDEL.tar.gz
+    wget --continue \
+        https://s3.amazonaws.com/sift-public/indel/SIFT_INDEL_HG38.tar.gz
+
+%files
+    SIFTINDEL.tar.gz /
+    SIFT_INDEL_HG38.tar.gz /
+
+%post
+    # Source code and databases
+    tar -xzvf /SIFTINDEL.tar.gz && rm /SIFTINDEL.tar.gz
+    tar -xzvf /SIFT_INDEL_HG38.tar.gz && rm /SIFT_INDEL_HG38.tar.gz
+
+    # Java is a hidden dependency. I download from java.net rather than use apt
+    # because the base OS is old enough that the apt repositories will 404.
+    cd / && wget \
+        https://download.java.net/java/GA/jdk20.0.1/b4887098932d415489976708ad6d1a4b/9/GPL/openjdk-20.0.1_linux-x64_bin.tar.gz
+    tar -zvxf openjdk-20.0.1_linux-x64_bin.tar.gz
+
+    # Perl dependencies
+    yes | perl -MCPAN -e 'install DBI'
+    yes | perl -MCPAN -e 'install Tie::IxHash'
+    yes | perl -MCPAN -e 'install DBD::SQLite'
+
+    # Set-up
+    echo "SITE_PERL=$(which perl)" > /SIFTINDEL/config_env.txt
+    echo "SIFT_HOME=/SIFTINDEL" >> /SIFTINDEL/config_env.txt
+    echo "TMP_DIR=/tmp" >> /SIFTINDEL/config_env.txt
+    echo "PERL_LIB=$(perl -V | grep @INC -A 1 | tail -1 | awk '{$1=$1};1')" >> \
+        /SIFTINDEL/config_env.txt
+    cd /SIFTINDEL && perl setup_env.pl
+
+%environment
+    export PATH=/jdk-20.0.1/bin/:$PATH
+
+# The README example is not used as a test because it creates files, but the
+# test phase of Singularity runs in a read-only environment. This can be
+# overcome by setting --writable-tmpfs on newer versions of Singularity, but not
+# for older versions.

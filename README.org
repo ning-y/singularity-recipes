@@ -1,0 +1,17 @@
+#+title: Singularity Recipes
+
+* Installation
+
+To create a container file (usually ending in ~sif~) from a singularity recipe (files ending in ~def~ in this repository), use
+
+#+begin_src bash
+singularity build container recipe
+#+end_src
+
+* Description
+
+|---------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------|
+| Recipe                                                  | Description                                                                                                          |
+|---------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------|
+| [[file:sift4g-indels-hg38.def][sift4g-indels-hg38.def]] | The offline SIFT classifier for coding indels, as in https://sift.bii.a-star.edu.sg/www/SIFT_indels2.html, for hg38. |
+|---------------------------------------------------------+----------------------------------------------------------------------------------------------------------------------|
